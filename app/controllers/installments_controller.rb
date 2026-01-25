@@ -65,8 +65,9 @@ class InstallmentsController < ApplicationController
     end
 
     redirect_back_or_to account_path(@account), notice: t("accounts.update.success", type: "Installment")
-  rescue ActiveRecord::RecordInvalid
-    @error_message = @account.errors.full_messages.join(", ")
+  rescue ActiveRecord::RecordInvalid => e
+    @error_message = e.record&.errors&.full_messages&.join(", ")
+    @error_message = @account.errors.full_messages.join(", ") if @error_message.blank?
     render :edit, status: :unprocessable_entity
   end
 

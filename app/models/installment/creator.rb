@@ -87,9 +87,9 @@ class Installment::Creator
       account.update!(balance: current_balance)
 
       # Create a balance record for today with the calculated balance
-      account.balances.find_or_create_by!(date: Date.current) do |balance|
-        balance.balance = current_balance
-        balance.currency = installment.currency
-      end
+      balance = account.balances.find_or_initialize_by(date: Date.current)
+      balance.balance = current_balance
+      balance.currency = installment.currency
+      balance.save!
     end
 end

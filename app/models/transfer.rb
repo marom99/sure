@@ -14,7 +14,7 @@ class Transfer < ApplicationRecord
 
   class << self
     def kind_for_account(account)
-      if account.loan?
+      if account.loan? || account.installment?
         "loan_payment"
       elsif account.credit_card?
         "cc_payment"
@@ -101,7 +101,7 @@ class Transfer < ApplicationRecord
   end
 
   def categorizable?
-    to_account&.accountable_type == "Loan"
+    to_account&.accountable_type.in?(%w[Loan Installment])
   end
 
   private

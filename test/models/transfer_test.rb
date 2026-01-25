@@ -117,6 +117,10 @@ class TransferTest < ActiveSupport::TestCase
     assert_equal "loan_payment", Transfer.kind_for_account(accounts(:loan))
   end
 
+  test "kind_for_account returns loan_payment for installment accounts" do
+    assert_equal "loan_payment", Transfer.kind_for_account(accounts(:installment))
+  end
+
   test "kind_for_account returns cc_payment for credit card accounts" do
     assert_equal "cc_payment", Transfer.kind_for_account(accounts(:credit_card))
   end

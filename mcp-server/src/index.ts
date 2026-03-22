@@ -112,13 +112,15 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Create a new transaction for a specific account",
       {
         account_id: z.string().describe("The unique ID of the account"),
-        amount: z.number().describe("Transaction amount"),
+        amount: z.number().describe("Transaction amount (always positive, use nature to indicate income/expense)"),
         description: z.string().describe("Description of the transaction"),
+        nature: z.enum(["income", "expense"]).optional().describe("Transaction type: 'income' for money received, 'expense' for money spent. Defaults to expense if omitted."),
         date: z.string().optional().describe("Transaction date in YYYY-MM-DD format"),
         category_id: z.string().optional().describe("The unique ID of the category"),
       },
-      async ({ account_id, amount, description, date, category_id }) => {
+      async ({ account_id, amount, description, nature, date, category_id }) => {
         const body: Record<string, unknown> = { account_id, amount, description };
+        if (nature) body.nature = nature;
         if (date) body.date = date;
         if (category_id) body.category_id = category_id;
         const data = await sureRequest("/transactions", this.env.SUREAPIKEY, "POST", { transaction: body });
@@ -271,6 +273,27 @@ export class SureMcpAgent extends McpAgent<Env> {
         if (account_id) params.set("account_id", account_id);
         const data = await sureRequest(
           `/spending-summary?${params}`,
+          this.env.SUREAPIKEY
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+        };
+      }
+    );
+
+    this.server.tool(
+      "get_spending_insights",
+      "Get a spending breakdown by category for a given date range, including total income, total expenses, and per-category totals with percentages",
+      {
+        start_date: z.string().describe("Start date in YYYY-MM-DD format"),
+        end_date: z.string().describe("End date in YYYY-MM-DD format"),
+        account_id: z.string().optional().describe("Optionally filter by account ID"),
+      },
+      async ({ start_date, end_date, account_id }) => {
+        const params = new URLSearchParams({ start_date, end_date });
+        if (account_id) params.set("account_id", account_id);
+        const data = await sureRequest(
+          `/spending_insights?${params}`,
           this.env.SUREAPIKEY
         );
         return {

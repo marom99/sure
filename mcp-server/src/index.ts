@@ -272,7 +272,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         const params = new URLSearchParams({ start_date, end_date });
         if (account_id) params.set("account_id", account_id);
         const data = await sureRequest(
-          `/spending_insights?${params}`,
+          `/reports/spending_summary?${params}`,
           this.env.SUREAPIKEY
         );
         return {

@@ -5,7 +5,7 @@ import { z } from "zod";
 const SURE_API_BASE = "https://surepersonal.pikapod.net/api/v1";
 
 interface Env {
-  SUREAPIKEY: string;
+  SURE_API_KEY: string;
 }
 
 // Helper to make authenticated requests to Sure API
@@ -49,7 +49,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "List all financial accounts connected to Sure (bank, credit, investment, etc.)",
       {},
       async () => {
-        const data = await sureRequest("/accounts", this.env.SUREAPIKEY);
+        const data = await sureRequest("/accounts", this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -61,7 +61,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Get details for a specific account by ID",
       { account_id: z.string().describe("The unique ID of the account") },
       async ({ account_id }) => {
-        const data = await sureRequest(`/accounts/${account_id}`, this.env.SUREAPIKEY);
+        const data = await sureRequest(`/accounts/${account_id}`, this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -88,7 +88,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         if (category) params.set("category", category);
         if (limit) params.set("limit", String(limit));
         const query = params.toString() ? `?${params}` : "";
-        const data = await sureRequest(`/transactions${query}`, this.env.SUREAPIKEY);
+        const data = await sureRequest(`/transactions${query}`, this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -100,7 +100,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Get details for a specific transaction by ID",
       { transaction_id: z.string().describe("The unique ID of the transaction") },
       async ({ transaction_id }) => {
-        const data = await sureRequest(`/transactions/${transaction_id}`, this.env.SUREAPIKEY);
+        const data = await sureRequest(`/transactions/${transaction_id}`, this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -123,7 +123,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         if (nature) body.nature = nature;
         if (date) body.date = date;
         if (category_id) body.category_id = category_id;
-        const data = await sureRequest("/transactions", this.env.SUREAPIKEY, "POST", { transaction: body });
+        const data = await sureRequest("/transactions", this.env.SURE_API_KEY, "POST", { transaction: body });
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -137,7 +137,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "List all budgets and their current spending progress",
       {},
       async () => {
-        const data = await sureRequest("/budgets", this.env.SUREAPIKEY);
+        const data = await sureRequest("/budgets", this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -149,7 +149,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Get details and spending status for a specific budget",
       { budget_id: z.string().describe("The unique ID of the budget") },
       async ({ budget_id }) => {
-        const data = await sureRequest(`/budgets/${budget_id}`, this.env.SUREAPIKEY);
+        const data = await sureRequest(`/budgets/${budget_id}`, this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -167,7 +167,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         currency: z.string().optional().describe("Currency code (default: USD)"),
       },
       async ({ name, category, amount, period, currency }) => {
-        const data = await sureRequest("/budgets", this.env.SUREAPIKEY, "POST", {
+        const data = await sureRequest("/budgets", this.env.SURE_API_KEY, "POST", {
           name,
           category,
           amount,
@@ -194,7 +194,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         if (amount !== undefined) body.amount = amount;
         if (period) body.period = period;
         if (name) body.name = name;
-        const data = await sureRequest(`/budgets/${budget_id}`, this.env.SUREAPIKEY, "PATCH", body);
+        const data = await sureRequest(`/budgets/${budget_id}`, this.env.SURE_API_KEY, "PATCH", body);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -206,7 +206,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Delete a budget by ID",
       { budget_id: z.string().describe("The unique ID of the budget to delete") },
       async ({ budget_id }) => {
-        await sureRequest(`/budgets/${budget_id}`, this.env.SUREAPIKEY, "DELETE");
+        await sureRequest(`/budgets/${budget_id}`, this.env.SURE_API_KEY, "DELETE");
         return {
           content: [{ type: "text", text: `Budget ${budget_id} deleted successfully.` }],
         };
@@ -220,7 +220,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "List all savings goals and their progress",
       {},
       async () => {
-        const data = await sureRequest("/goals", this.env.SUREAPIKEY);
+        const data = await sureRequest("/goals", this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -239,7 +239,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       async ({ name, target_amount, target_date, currency }) => {
         const body: Record<string, unknown> = { name, target_amount, currency: currency ?? "USD" };
         if (target_date) body.target_date = target_date;
-        const data = await sureRequest("/goals", this.env.SUREAPIKEY, "POST", body);
+        const data = await sureRequest("/goals", this.env.SURE_API_KEY, "POST", body);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -253,7 +253,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Get the user's current net worth (total assets minus total liabilities)",
       {},
       async () => {
-        const data = await sureRequest("/net-worth", this.env.SUREAPIKEY);
+        const data = await sureRequest("/net-worth", this.env.SURE_API_KEY);
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
@@ -273,7 +273,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         if (account_id) params.set("account_id", account_id);
         const data = await sureRequest(
           `/spending_insights?${params}`,
-          this.env.SUREAPIKEY
+          this.env.SURE_API_KEY
         );
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
@@ -294,7 +294,7 @@ export class SureMcpAgent extends McpAgent<Env> {
         if (account_id) params.set("account_id", account_id);
         const data = await sureRequest(
           `/spending_insights?${params}`,
-          this.env.SUREAPIKEY
+          this.env.SURE_API_KEY
         );
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],

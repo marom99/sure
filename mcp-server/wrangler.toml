@@ -1,0 +1,19 @@
+name = "sure-mcp-server"
+main = "index.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable Objects binding required by McpAgent
+[[durable_objects.bindings]]
+name = "MCP_OBJECT"
+class_name = "SureMcpAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SureMcpAgent"]
+
+# Set your Sure API key as a secret:
+#   wrangler secret put SURE_API_KEY
+# Then paste your key when prompted.
+# [vars]
+# SURE_API_KEY = ""   # ← do NOT put real keys here; use `wrangler secret put` instead

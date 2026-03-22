@@ -39,7 +39,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.uuid "accountable_id"
     t.decimal "balance", precision: 19, scale: 4
     t.string "currency"
-    t.virtual "classification", type: :string, as: "\nCASE\n    WHEN ((accountable_type)::text = ANY (ARRAY[('Loan'::character varying)::text, ('CreditCard'::character varying)::text, ('OtherLiability'::character varying)::text])) THEN 'liability'::text\n    ELSE 'asset'::text\nEND", stored: true
     t.uuid "import_id"
     t.uuid "plaid_account_id"
     t.decimal "cash_balance", precision: 19, scale: 4, default: "0.0"
@@ -49,6 +48,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.string "institution_name"
     t.string "institution_domain"
     t.text "notes"
+    t.virtual "classification", type: :string, as: "\nCASE\n    WHEN ((accountable_type)::text = ANY (ARRAY[('Loan'::character varying)::text, ('CreditCard'::character varying)::text, ('OtherLiability'::character varying)::text, ('Installment'::character varying)::text])) THEN 'liability'::text\n    ELSE 'asset'::text\nEND", stored: true
     t.index ["accountable_id", "accountable_type"], name: "index_accounts_on_accountable_id_and_accountable_type"
     t.index ["accountable_type"], name: "index_accounts_on_accountable_type"
     t.index ["currency"], name: "index_accounts_on_currency"
@@ -193,8 +193,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.uuid "parent_id"
-    t.string "lucide_icon", default: "shapes", null: false
     t.string "classification_unused", default: "expense", null: false
+    t.string "lucide_icon", default: "shapes", null: false
     t.index ["family_id"], name: "index_categories_on_family_id"
   end
 
@@ -513,8 +513,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.datetime "latest_sync_completed_at", default: -> { "CURRENT_TIMESTAMP" }
     t.boolean "recurring_transactions_disabled", default: false, null: false
     t.integer "month_start_day", default: 1, null: false
-    t.string "vector_store_id"
     t.string "moniker", default: "Family", null: false
+    t.string "vector_store_id"
     t.string "assistant_type", default: "builtin", null: false
     t.check_constraint "month_start_day >= 1 AND month_start_day <= 28", name: "month_start_day_range"
   end
@@ -674,9 +674,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.string "exchange_operating_mic_col_label"
     t.string "amount_type_strategy", default: "signed_amount"
     t.string "amount_type_inflow_value"
-    t.integer "rows_to_skip", default: 0, null: false
     t.integer "rows_count", default: 0, null: false
     t.string "amount_type_identifier_value"
+    t.integer "rows_to_skip", default: 0, null: false
     t.text "ai_summary"
     t.string "document_type"
     t.jsonb "extracted_data"
@@ -705,8 +705,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.date "sync_start_date"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["indexa_capital_item_id", "indexa_capital_account_id"], name: "index_indexa_capital_accounts_on_item_and_account_id", unique: true, where: "(indexa_capital_account_id IS NOT NULL)"
     t.index ["indexa_capital_authorization_id"], name: "idx_on_indexa_capital_authorization_id_58db208d52"
+    t.index ["indexa_capital_item_id", "indexa_capital_account_id"], name: "index_indexa_capital_accounts_on_item_and_account_id", unique: true, where: "(indexa_capital_account_id IS NOT NULL)"
     t.index ["indexa_capital_item_id"], name: "index_indexa_capital_accounts_on_indexa_capital_item_id"
   end
 
@@ -732,6 +732,21 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.text "api_token"
     t.index ["family_id"], name: "index_indexa_capital_items_on_family_id"
     t.index ["status"], name: "index_indexa_capital_items_on_status"
+  end
+
+  create_table "installments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "family_id", null: false
+    t.string "name"
+    t.integer "total_installments"
+    t.string "payment_period"
+    t.date "first_payment_date"
+    t.integer "installment_cost_cents"
+    t.string "currency"
+    t.boolean "auto_generate", default: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "locked_attributes", default: {}
+    t.index ["family_id"], name: "index_installments_on_family_id"
   end
 
   create_table "investments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1260,9 +1275,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.jsonb "raw_activities_payload", default: []
     t.datetime "last_holdings_sync"
     t.datetime "last_activities_sync"
+    t.boolean "activities_fetch_pending", default: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "activities_fetch_pending", default: false
     t.date "sync_start_date"
     t.index ["snaptrade_item_id", "snaptrade_account_id"], name: "index_snaptrade_accounts_on_item_and_snaptrade_account_id", unique: true, where: "(snaptrade_account_id IS NOT NULL)"
     t.index ["snaptrade_item_id"], name: "index_snaptrade_accounts_on_snaptrade_item_id"
@@ -1415,10 +1430,12 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.string "kind", default: "standard", null: false
     t.string "external_id"
     t.jsonb "extra", default: {}, null: false
+    t.uuid "installment_id"
     t.string "investment_activity_label"
     t.index ["category_id"], name: "index_transactions_on_category_id"
     t.index ["external_id"], name: "index_transactions_on_external_id"
     t.index ["extra"], name: "index_transactions_on_extra", using: :gin
+    t.index ["installment_id"], name: "index_transactions_on_installment_id"
     t.index ["investment_activity_label"], name: "index_transactions_on_investment_activity_label"
     t.index ["kind"], name: "index_transactions_on_kind"
     t.index ["merchant_id"], name: "index_transactions_on_merchant_id"
@@ -1465,8 +1482,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
     t.datetime "set_onboarding_goals_at"
     t.string "default_account_order", default: "name_asc"
     t.jsonb "preferences", default: {}, null: false
-    t.string "locale"
     t.string "ui_layout"
+    t.string "locale"
     t.uuid "default_account_id"
     t.index ["default_account_id"], name: "index_users_on_default_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
@@ -1538,6 +1555,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
   add_foreign_key "imports", "families"
   add_foreign_key "indexa_capital_accounts", "indexa_capital_items"
   add_foreign_key "indexa_capital_items", "families"
+  add_foreign_key "installments", "families"
   add_foreign_key "invitations", "families"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "llm_usages", "families"
@@ -1577,6 +1595,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_20_080659) do
   add_foreign_key "tool_calls", "messages"
   add_foreign_key "trades", "securities"
   add_foreign_key "transactions", "categories", on_delete: :nullify
+  add_foreign_key "transactions", "installments"
   add_foreign_key "transactions", "merchants"
   add_foreign_key "transfers", "transactions", column: "inflow_transaction_id", on_delete: :cascade
   add_foreign_key "transfers", "transactions", column: "outflow_transaction_id", on_delete: :cascade

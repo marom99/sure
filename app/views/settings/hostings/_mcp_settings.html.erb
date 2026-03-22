@@ -1,0 +1,46 @@
+<div class="space-y-4">
+  <div>
+    <h2 class="font-medium mb-1"><%= t(".title") %></h2>
+    <p class="text-secondary text-sm mb-4"><%= t(".description") %></p>
+  </div>
+
+  <div class="flex items-center gap-2 text-sm mb-4">
+    <% if Setting.mcp_api_token.present? && Setting.mcp_user_email.present? %>
+      <span class="inline-block w-2 h-2 rounded-full bg-success"></span>
+      <span class="text-secondary"><%= t(".status_configured") %></span>
+    <% else %>
+      <span class="inline-block w-2 h-2 rounded-full bg-alpha-black-100"></span>
+      <span class="text-secondary"><%= t(".status_not_configured") %></span>
+    <% end %>
+  </div>
+
+  <%= styled_form_with model: Setting.new,
+                       url: settings_hosting_path,
+                       method: :patch,
+                       class: "space-y-4",
+                       data: {
+                         controller: "auto-submit-form",
+                         "auto-submit-form-trigger-event-value": "blur"
+                       } do |form| %>
+    <%= form.password_field :mcp_api_token,
+                            label: t(".token_label"),
+                            placeholder: t(".token_placeholder"),
+                            value: (Setting.mcp_api_token.present? ? "********" : nil),
+                            autocomplete: "off",
+                            autocapitalize: "none",
+                            spellcheck: "false",
+                            inputmode: "text",
+                            data: { "auto-submit-form-target": "auto" } %>
+    <p class="text-xs text-secondary -mt-2"><%= t(".token_help") %></p>
+
+    <%= form.email_field :mcp_user_email,
+                         label: t(".email_label"),
+                         placeholder: t(".email_placeholder"),
+                         value: Setting.mcp_user_email,
+                         autocomplete: "off",
+                         autocapitalize: "none",
+                         spellcheck: "false",
+                         data: { "auto-submit-form-target": "auto" } %>
+    <p class="text-xs text-secondary -mt-2"><%= t(".email_help") %></p>
+  <% end %>
+</div>

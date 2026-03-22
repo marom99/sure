@@ -101,7 +101,7 @@ class McpController < ApplicationController
     end
 
     def authenticate_mcp_token!
-      expected = ENV["MCP_API_TOKEN"]
+      expected = Setting.mcp_api_token
 
       unless expected.present?
         render json: { error: "MCP endpoint not configured" }, status: :service_unavailable
@@ -119,7 +119,7 @@ class McpController < ApplicationController
     end
 
     def setup_mcp_user
-      email = ENV["MCP_USER_EMAIL"]
+      email = Setting.mcp_user_email
       @mcp_user = User.find_by(email: email) if email.present?
 
       unless @mcp_user

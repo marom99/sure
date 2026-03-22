@@ -17,9 +17,21 @@ en:
           open: Open
           closed: Closed
           invite_only: Invite-only
+      mcp_settings:
+        title: MCP Server
+        description: Enable the MCP endpoint so external AI assistants (like Claude) can access your financial data directly.
+        status_configured: MCP server is active
+        status_not_configured: Not configured. Enter a token and email below to enable.
+        token_label: API Token
+        token_placeholder: Enter a secure random token
+        token_help: Generate one with "openssl rand -base64 32". This token must be provided by any client connecting to the /mcp endpoint.
+        email_label: User Email
+        email_placeholder: user@example.com
+        email_help: Must match an existing account's email. MCP requests will run as this user.
       show:
         general: General Settings
         ai_assistant: AI Assistant
+        mcp: MCP Server
         financial_data_providers: Financial Data Providers
         sync_settings: Sync Settings
         invites: Invite Codes

@@ -139,6 +139,17 @@ class Settings::HostingsController < ApplicationController
       Setting.external_assistant_agent_id = hosting_params[:external_assistant_agent_id]
     end
 
+    if hosting_params.key?(:mcp_api_token)
+      token_param = hosting_params[:mcp_api_token].to_s.strip
+      unless token_param.blank? || token_param == "********"
+        Setting.mcp_api_token = token_param
+      end
+    end
+
+    if hosting_params.key?(:mcp_user_email)
+      Setting.mcp_user_email = hosting_params[:mcp_user_email].to_s.strip.presence
+    end
+
     update_assistant_type
 
     redirect_to settings_hosting_path, notice: t(".success")
@@ -166,7 +177,7 @@ class Settings::HostingsController < ApplicationController
   private
     def hosting_params
       return ActionController::Parameters.new unless params.key?(:setting)
-      params.require(:setting).permit(:onboarding_state, :require_email_confirmation, :invite_only_default_family_id, :brand_fetch_client_id, :brand_fetch_high_res_logos, :twelve_data_api_key, :openai_access_token, :openai_uri_base, :openai_model, :openai_json_mode, :exchange_rate_provider, :securities_provider, :syncs_include_pending, :auto_sync_enabled, :auto_sync_time, :external_assistant_url, :external_assistant_token, :external_assistant_agent_id)
+      params.require(:setting).permit(:onboarding_state, :require_email_confirmation, :invite_only_default_family_id, :brand_fetch_client_id, :brand_fetch_high_res_logos, :twelve_data_api_key, :openai_access_token, :openai_uri_base, :openai_model, :openai_json_mode, :exchange_rate_provider, :securities_provider, :syncs_include_pending, :auto_sync_enabled, :auto_sync_time, :external_assistant_url, :external_assistant_token, :external_assistant_agent_id, :mcp_api_token, :mcp_user_email)
     end
 
     def update_assistant_type

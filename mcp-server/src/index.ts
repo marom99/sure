@@ -2,7 +2,7 @@ import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-const SURE_API_BASE = "https://api.sureapp.com/v1";
+const SURE_API_BASE = "https://surepersonal.pikapod.net/api/v1";
 
 interface Env {
   SURE_API_KEY: string;

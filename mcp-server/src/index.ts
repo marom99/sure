@@ -107,6 +107,27 @@ export class SureMcpAgent extends McpAgent<Env> {
       }
     );
 
+    this.server.tool(
+      "create_transaction",
+      "Create a new transaction for a specific account",
+      {
+        account_id: z.string().describe("The unique ID of the account"),
+        amount: z.number().describe("Transaction amount"),
+        description: z.string().describe("Description of the transaction"),
+        date: z.string().optional().describe("Transaction date in YYYY-MM-DD format"),
+        category_id: z.string().optional().describe("The unique ID of the category"),
+      },
+      async ({ account_id, amount, description, date, category_id }) => {
+        const body: Record<string, unknown> = { account_id, amount, description };
+        if (date) body.date = date;
+        if (category_id) body.category_id = category_id;
+        const data = await sureRequest("/transactions", this.env.SUREAPIKEY, "POST", body);
+        return {
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+        };
+      }
+    );
+
     // ── Budgets ───────────────────────────────────────────────────────────────
 
     this.server.tool(

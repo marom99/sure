@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "MCP server for Sure Personal Finance – REST API v1",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

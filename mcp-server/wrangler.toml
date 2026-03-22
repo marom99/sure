@@ -1,6 +1,6 @@
 name = "sure-mcp-server"
 main = "src/index.ts"
-compatibility_date = "2025-03-01"
+compatibility_date = "2025-04-03"
 compatibility_flags = ["nodejs_compat"]
 
 # Durable Objects binding required by McpAgent

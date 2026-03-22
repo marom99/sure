@@ -17,7 +17,7 @@ async function sureRequest(
 ): Promise<unknown> {
   const url = `${SURE_API_BASE}${path}`;
   const headers: Record<string, string> = {
-    "Authorization": `Bearer ${apiKey}`,
+    "X-Api-Key": apiKey,
     "Content-Type": "application/json",
     "Accept": "application/json",
   };

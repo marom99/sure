@@ -2,37 +2,20 @@ import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-const SURE_API_BASE = "https://surepersonal.pikapod.net/api/v1";
+import {
+  buildTransactionsQuery,
+  categoryIdSchema,
+  categoryNameSchema,
+  createJsonToolResult,
+  fetchCategoriesPage,
+  pageSchema,
+  perPageSchema,
+  resolveCategoryId,
+  sureRequest,
+} from "./sure-api.ts";
 
 interface Env {
   SURE_API_KEY: string;
-}
-
-// Helper to make authenticated requests to Sure API
-async function sureRequest(
-  path: string,
-  apiKey: string,
-  method: string = "GET",
-  body?: Record<string, unknown>
-): Promise<unknown> {
-  const url = `${SURE_API_BASE}${path}`;
-  const headers: Record<string, string> = {
-    "X-Api-Key": apiKey,
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-  };
-
-  const options: RequestInit = { method, headers };
-  if (body) {
-    options.body = JSON.stringify(body);
-  }
-
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Sure API error ${response.status}: ${errorText}`);
-  }
-  return response.json();
 }
 
 export class SureMcpAgent extends McpAgent<Env> {
@@ -50,9 +33,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       {},
       async () => {
         const data = await sureRequest("/accounts", this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
 
@@ -61,10 +42,41 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Get details for a specific account by ID",
       { account_id: z.string().describe("The unique ID of the account") },
       async ({ account_id }) => {
-        const data = await sureRequest(`/accounts/${account_id}`, this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        const data = await sureRequest(
+          `/accounts/${account_id}`,
+          this.env.SURE_API_KEY
+        );
+        return createJsonToolResult(data);
+      }
+    );
+
+    // ── Categories ────────────────────────────────────────────────────────────
+
+    this.server.tool(
+      "list_categories",
+      "List available Sure categories with UUIDs so transactions can be assigned to valid categories",
+      {
+        page: pageSchema.optional(),
+        per_page: perPageSchema.optional(),
+        roots_only: z
+          .boolean()
+          .optional()
+          .describe("Only return top-level categories"),
+        parent_id: z
+          .string()
+          .uuid()
+          .optional()
+          .describe("Filter categories by parent category UUID"),
+      },
+      async ({ page, per_page, roots_only, parent_id }) => {
+        const data = await fetchCategoriesPage(this.env.SURE_API_KEY, sureRequest, {
+          page,
+          per_page,
+          roots_only,
+          parent_id,
+        });
+
+        return createJsonToolResult(data);
       }
     );
 
@@ -75,35 +87,66 @@ export class SureMcpAgent extends McpAgent<Env> {
       "List transactions, optionally filtered by account, date range, or category",
       {
         account_id: z.string().optional().describe("Filter by account ID"),
-        start_date: z.string().optional().describe("Start date in YYYY-MM-DD format"),
-        end_date: z.string().optional().describe("End date in YYYY-MM-DD format"),
-        category: z.string().optional().describe("Filter by spending category"),
-        limit: z.number().optional().describe("Max number of transactions to return (default 50)"),
+        start_date: z
+          .string()
+          .optional()
+          .describe("Start date in YYYY-MM-DD format"),
+        end_date: z
+          .string()
+          .optional()
+          .describe("End date in YYYY-MM-DD format"),
+        category_id: categoryIdSchema.optional(),
+        category_name: categoryNameSchema.optional(),
+        category: categoryNameSchema.optional(),
+        page: pageSchema.optional(),
+        per_page: perPageSchema.optional(),
       },
-      async ({ account_id, start_date, end_date, category, limit }) => {
-        const params = new URLSearchParams();
-        if (account_id) params.set("account_id", account_id);
-        if (start_date) params.set("start_date", start_date);
-        if (end_date) params.set("end_date", end_date);
-        if (category) params.set("category", category);
-        if (limit) params.set("limit", String(limit));
-        const query = params.toString() ? `?${params}` : "";
-        const data = await sureRequest(`/transactions${query}`, this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+      async ({
+        account_id,
+        start_date,
+        end_date,
+        category_id,
+        category_name,
+        category,
+        page,
+        per_page,
+      }) => {
+        const resolvedCategoryId = await resolveCategoryId(
+          this.env.SURE_API_KEY,
+          { category_id, category_name, category },
+          sureRequest
+        );
+
+        const params = buildTransactionsQuery({
+          account_id,
+          start_date,
+          end_date,
+          category_id: resolvedCategoryId,
+          page,
+          per_page,
+        });
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const data = await sureRequest(
+          `/transactions${query}`,
+          this.env.SURE_API_KEY
+        );
+
+        return createJsonToolResult(data);
       }
     );
 
     this.server.tool(
       "get_transaction",
       "Get details for a specific transaction by ID",
-      { transaction_id: z.string().describe("The unique ID of the transaction") },
+      {
+        transaction_id: z.string().describe("The unique ID of the transaction"),
+      },
       async ({ transaction_id }) => {
-        const data = await sureRequest(`/transactions/${transaction_id}`, this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        const data = await sureRequest(
+          `/transactions/${transaction_id}`,
+          this.env.SURE_API_KEY
+        );
+        return createJsonToolResult(data);
       }
     );
 
@@ -112,21 +155,61 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Create a new transaction for a specific account",
       {
         account_id: z.string().describe("The unique ID of the account"),
-        amount: z.number().describe("Transaction amount (always positive, use nature to indicate income/expense)"),
+        amount: z
+          .number()
+          .describe(
+            "Transaction amount (always positive, use nature to indicate income/expense)"
+          ),
         description: z.string().describe("Description of the transaction"),
-        nature: z.enum(["income", "expense"]).optional().describe("Transaction type: 'income' for money received, 'expense' for money spent. Defaults to expense if omitted."),
-        date: z.string().optional().describe("Transaction date in YYYY-MM-DD format"),
-        category_id: z.string().optional().describe("The unique ID of the category"),
+        nature: z
+          .enum(["income", "expense"])
+          .optional()
+          .describe(
+            "Transaction type: 'income' for money received, 'expense' for money spent. Defaults to expense if omitted."
+          ),
+        date: z
+          .string()
+          .optional()
+          .describe("Transaction date in YYYY-MM-DD format"),
+        category_id: categoryIdSchema.optional(),
+        category_name: categoryNameSchema.optional(),
+        category: categoryNameSchema.optional(),
       },
-      async ({ account_id, amount, description, nature, date, category_id }) => {
+      async ({
+        account_id,
+        amount,
+        description,
+        nature,
+        date,
+        category_id,
+        category_name,
+        category,
+      }) => {
+        const resolvedCategoryId = await resolveCategoryId(
+          this.env.SURE_API_KEY,
+          { category_id, category_name, category },
+          sureRequest
+        );
+
         const body: Record<string, unknown> = { account_id, amount, description };
-        if (nature) body.nature = nature;
-        if (date) body.date = date;
-        if (category_id) body.category_id = category_id;
-        const data = await sureRequest("/transactions", this.env.SURE_API_KEY, "POST", { transaction: body });
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        if (nature) {
+          body.nature = nature;
+        }
+        if (date) {
+          body.date = date;
+        }
+        if (resolvedCategoryId) {
+          body.category_id = resolvedCategoryId;
+        }
+
+        const data = await sureRequest(
+          "/transactions",
+          this.env.SURE_API_KEY,
+          "POST",
+          { transaction: body }
+        );
+
+        return createJsonToolResult(data);
       }
     );
 
@@ -138,9 +221,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       {},
       async () => {
         const data = await sureRequest("/budgets", this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
 
@@ -149,10 +230,11 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Get details and spending status for a specific budget",
       { budget_id: z.string().describe("The unique ID of the budget") },
       async ({ budget_id }) => {
-        const data = await sureRequest(`/budgets/${budget_id}`, this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        const data = await sureRequest(
+          `/budgets/${budget_id}`,
+          this.env.SURE_API_KEY
+        );
+        return createJsonToolResult(data);
       }
     );
 
@@ -161,9 +243,13 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Create a new spending budget for a category",
       {
         name: z.string().describe("Name of the budget"),
-        category: z.string().describe("Spending category (e.g. 'Food & Dining', 'Transport')"),
+        category: z
+          .string()
+          .describe("Spending category (e.g. 'Food & Dining', 'Transport')"),
         amount: z.number().describe("Budget limit amount"),
-        period: z.enum(["weekly", "monthly", "yearly"]).describe("Budget period"),
+        period: z
+          .enum(["weekly", "monthly", "yearly"])
+          .describe("Budget period"),
         currency: z.string().optional().describe("Currency code (default: USD)"),
       },
       async ({ name, category, amount, period, currency }) => {
@@ -174,9 +260,7 @@ export class SureMcpAgent extends McpAgent<Env> {
           period,
           currency: currency ?? "USD",
         });
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
 
@@ -184,20 +268,35 @@ export class SureMcpAgent extends McpAgent<Env> {
       "update_budget",
       "Update an existing budget's limit or period",
       {
-        budget_id: z.string().describe("The unique ID of the budget to update"),
+        budget_id: z
+          .string()
+          .describe("The unique ID of the budget to update"),
         amount: z.number().optional().describe("New budget limit amount"),
-        period: z.enum(["weekly", "monthly", "yearly"]).optional().describe("New budget period"),
+        period: z
+          .enum(["weekly", "monthly", "yearly"])
+          .optional()
+          .describe("New budget period"),
         name: z.string().optional().describe("New budget name"),
       },
       async ({ budget_id, amount, period, name }) => {
         const body: Record<string, unknown> = {};
-        if (amount !== undefined) body.amount = amount;
-        if (period) body.period = period;
-        if (name) body.name = name;
-        const data = await sureRequest(`/budgets/${budget_id}`, this.env.SURE_API_KEY, "PATCH", body);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        if (amount !== undefined) {
+          body.amount = amount;
+        }
+        if (period) {
+          body.period = period;
+        }
+        if (name) {
+          body.name = name;
+        }
+
+        const data = await sureRequest(
+          `/budgets/${budget_id}`,
+          this.env.SURE_API_KEY,
+          "PATCH",
+          body
+        );
+        return createJsonToolResult(data);
       }
     );
 
@@ -206,9 +305,18 @@ export class SureMcpAgent extends McpAgent<Env> {
       "Delete a budget by ID",
       { budget_id: z.string().describe("The unique ID of the budget to delete") },
       async ({ budget_id }) => {
-        await sureRequest(`/budgets/${budget_id}`, this.env.SURE_API_KEY, "DELETE");
+        await sureRequest(
+          `/budgets/${budget_id}`,
+          this.env.SURE_API_KEY,
+          "DELETE"
+        );
         return {
-          content: [{ type: "text", text: `Budget ${budget_id} deleted successfully.` }],
+          content: [
+            {
+              type: "text",
+              text: `Budget ${budget_id} deleted successfully.`,
+            },
+          ],
         };
       }
     );
@@ -221,9 +329,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       {},
       async () => {
         const data = await sureRequest("/goals", this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
 
@@ -233,16 +339,29 @@ export class SureMcpAgent extends McpAgent<Env> {
       {
         name: z.string().describe("Name of the savings goal"),
         target_amount: z.number().describe("Target savings amount"),
-        target_date: z.string().optional().describe("Target completion date in YYYY-MM-DD format"),
+        target_date: z
+          .string()
+          .optional()
+          .describe("Target completion date in YYYY-MM-DD format"),
         currency: z.string().optional().describe("Currency code (default: USD)"),
       },
       async ({ name, target_amount, target_date, currency }) => {
-        const body: Record<string, unknown> = { name, target_amount, currency: currency ?? "USD" };
-        if (target_date) body.target_date = target_date;
-        const data = await sureRequest("/goals", this.env.SURE_API_KEY, "POST", body);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+        const body: Record<string, unknown> = {
+          name,
+          target_amount,
+          currency: currency ?? "USD",
         };
+        if (target_date) {
+          body.target_date = target_date;
+        }
+
+        const data = await sureRequest(
+          "/goals",
+          this.env.SURE_API_KEY,
+          "POST",
+          body
+        );
+        return createJsonToolResult(data);
       }
     );
 
@@ -254,9 +373,7 @@ export class SureMcpAgent extends McpAgent<Env> {
       {},
       async () => {
         const data = await sureRequest("/net-worth", this.env.SURE_API_KEY);
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
 
@@ -270,14 +387,15 @@ export class SureMcpAgent extends McpAgent<Env> {
       },
       async ({ start_date, end_date, account_id }) => {
         const params = new URLSearchParams({ start_date, end_date });
-        if (account_id) params.set("account_id", account_id);
+        if (account_id) {
+          params.set("account_id", account_id);
+        }
+
         const data = await sureRequest(
-          `/spending_insights?${params}`,
+          `/spending_insights?${params.toString()}`,
           this.env.SURE_API_KEY
         );
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
 
@@ -287,18 +405,22 @@ export class SureMcpAgent extends McpAgent<Env> {
       {
         start_date: z.string().describe("Start date in YYYY-MM-DD format"),
         end_date: z.string().describe("End date in YYYY-MM-DD format"),
-        account_id: z.string().optional().describe("Optionally filter by account ID"),
+        account_id: z
+          .string()
+          .optional()
+          .describe("Optionally filter by account ID"),
       },
       async ({ start_date, end_date, account_id }) => {
         const params = new URLSearchParams({ start_date, end_date });
-        if (account_id) params.set("account_id", account_id);
+        if (account_id) {
+          params.set("account_id", account_id);
+        }
+
         const data = await sureRequest(
-          `/spending_insights?${params}`,
+          `/spending_insights?${params.toString()}`,
           this.env.SURE_API_KEY
         );
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-        };
+        return createJsonToolResult(data);
       }
     );
   }

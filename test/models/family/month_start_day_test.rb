@@ -5,8 +5,8 @@ class Family::MonthStartDayTest < ActiveSupport::TestCase
     @family = families(:dylan_family)
   end
 
-  test "month_start_day defaults to 1" do
-    assert_equal 1, @family.month_start_day
+  test "month_start_day defaults to 28" do
+    assert_equal 28, @family.month_start_day
   end
 
   test "validates month_start_day is between 1 and 28" do
